@@ -1,0 +1,6 @@
+A .passwd file is needed containing your gmail credentials in the format below.
+
+[gmail]
+username=joesmith
+password=hockey
+
