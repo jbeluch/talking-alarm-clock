@@ -5,6 +5,7 @@ from libs.BeautifulSoup import BeautifulStoneSoup as BSS
 import urllib2
 from string import Template
 from ConfigParser import ConfigParser
+import re
 #collect data from each source, enter into the main festival script
 #1. download data
 #2. compose template for specific data
@@ -70,25 +71,50 @@ class GoogleCalendar(object):
             print e
             print ''
     
+class Weather(object):
+    url = 'http://weather.yahooapis.com/forecastrss?w=12761347'
+
+    def __init__(self):
+        pass
+
+    def generate_output(self):
+        xml = BSS(download_page(self.url))     
+        ys = xml.findAll(re.compile('yweather'))
+        self._parse_weather_data(xml)
+        #read templates
+        #substitute with self.wdata
+        #write out template
+        
+    def _parse_weather_data(self, xml):
+        wdata = {}
+        i = 1
+        for y in xml.findAll(re.compile('yweather')):
+            name = y.name[9:]
+            if name == 'forecast': 
+                name = 'forecast%s' % i
+                i = i + 1
+            [wdata.update({'%s_%s' % (name, k): v}) for k, v in y.attrs]
+        self.wdata = wdata
+
 def create_output(config):
-    subs = {}
-    
-    #gmail
-    gmail = GMail(config.get('gmail', 'username'),
-                  config.get('gmail', 'password'))
-    subs['gmail'] = gmail.generate_output()    
+    #subs = {} #gmail gmail = GMail(config.get('gmail', 'username'),
+    #              config.get('gmail', 'password'))
+    #subs['gmail'] = gmail.generate_output()    
+    Weather().generate_output()
 
     #google calendar
     #url = ''
     #gcal = GoogleCalendar(url)
     #subs['gcal'] = gcal.generate_output()
-
-    print subs
+    #print subs
 
 def get_config_options():
     config = ConfigParser()
     config.readfp(open('.passwd'))
     return config
+
+def download_page(url):
+    return urllib2.urlopen(url).read()
 
 if __name__ == '__main__':
     config = get_config_options()

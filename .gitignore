@@ -1,2 +1,3 @@
 # ignore password file
 .passwd
+*.pyc
