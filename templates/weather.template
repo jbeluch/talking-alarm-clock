@@ -1,0 +1,42 @@
+# WEATHER TEMPLATE
+# All lines beginning with a # are ignored.
+#
+# These are the items that can be substituted.  Prepend the label names with a
+# dollar sign.  For further details please see the python docs here:
+#   http://docs.python.org/library/string.html#template-strings
+#
+# LABEL                 EXAMPLE VALUES
+# forecast1_text        Sunny
+# forecast1_date        7 Jun 2010
+# forecast1_day         Mon
+# forecast1_high        76
+# forecast1_low         54
+# forecast1_code        32
+# forecast2_text        Sunny
+# forecast2_date        7 Jun 2010
+# forecast2_day         Mon
+# forecast2_high        76
+# forecast2_low         54
+# forecast2_code        32
+# units_speed           mph
+# units_distance        mi
+# units_temperature     F
+# units_pressure        in
+# condition_date        Mon, 07 Jun 2010 1:51 pm EDT
+# condition_temp        72
+# condition_text        Partly Cloudy
+# condition_code        30
+# atmosphere_visibility 10
+# atmosphere_pressure   29.85
+# atmosphere_rising     0
+# atmosphere_humidity   33
+# wind_speed            8
+# wind_chill            72
+# wind_direction        280
+# astronomy_sunrise     5:24 am
+# astronomy_sunset      8:24 pm
+# location_city         New York
+# location_region       NY
+# location_country      United States
+
+The current conditions for $location_city are $condition_text, $condition_temp degrees $units_temperature.

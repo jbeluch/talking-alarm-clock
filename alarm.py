@@ -6,6 +6,7 @@ import urllib2
 from string import Template
 from ConfigParser import ConfigParser
 import re
+import os
 #collect data from each source, enter into the main festival script
 #1. download data
 #2. compose template for specific data
@@ -13,46 +14,38 @@ import re
 
 
 class GMail(object):
-    path = 'libs/gmail/'
+    #todo - pass all available gmail feed values to the template
     url = 'https://mail.google.com/mail/feed/atom'
 
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password        
-        self.read_templates()
+    def __init__(self, options):
+        self.username = options['username']
+        self.password = options['password']
+        self.email_tmpl = read_template(options['email_template'])
+        self.gmail_tmpl = read_template(options['gmail_template'])
 
-    def read_templates(self):
-        f = open('templates/email.template', 'r')
-        self.email_template = Template(f.read())
-        f.close()
-        f = open('templates/gmail.template', 'r')
-        self.gmail_template = Template(f.read())
-        f.close()
-
-    def generate_output(self):
-        #download feed
+    def _download_feed(self):
         auth_handler = urllib2.HTTPBasicAuthHandler()
         auth_handler.add_password('New mail feed', self.url, self.username,
                                   self.password)
         opener = urllib2.build_opener(auth_handler)
         u = opener.open(self.url)
-        email_xml = BSS(u.read(), selfClosingTags=['link'])
+        data = u.read()
         u.close()
-    
-        #parse email subjects and sender
-        email_tags = email_xml.findAll('entry') 
-        emails = []
-        
-        #generate email strings
-        for e in email_tags:
-            subs = {'sender': e.author.nameTag.text,
-                    'subject': e.title.text}
-            email_text = self.email_template.substitute(subs)
-            emails.append(email_text)
+        return data
 
-        subs = {'unread_count': email_xml.fullcount.text,
-                'emails': '\n'.join(emails)}
-        return self.gmail_template.substitute(subs)
+    def generate_output(self):
+        #download email feed and parse xml
+        xml = BSS(self._download_feed(), selfClosingTags=['link'])
+    
+        #for each email, generate output subbing the sender and the subject
+        emails = [self.email_tmpl.substitute({'sender': e.author.nameTag.text,
+                  'subject': e.title.text}) for e in xml.findAll('entry')]
+
+        #substitute all of the email templates into one output string
+        self.output = self.gmail_tmpl.substitute(
+            {'unread_count': xml.fullcount.text, 'emails': '\n'.join(emails)})
+
+        return self.output
 
 class GoogleCalendar(object):
     def __init__(self, url):
@@ -72,19 +65,26 @@ class GoogleCalendar(object):
             print ''
     
 class Weather(object):
-    url = 'http://weather.yahooapis.com/forecastrss?w=12761347'
 
-    def __init__(self):
-        pass
+    def __init__(self, options):
+        url = 'http://weather.yahooapis.com/forecastrss?w=%s'
+        self.url = url % options['code'] 
+        self.options = options
+        self.template_fn = options['template']
 
     def generate_output(self):
         xml = BSS(download_page(self.url))     
-        ys = xml.findAll(re.compile('yweather'))
-        self._parse_weather_data(xml)
+
         #read templates
+        self.template = read_template(self.template_fn) 
+
+        #parse data
+        self.weather_data = self._parse_weather_data(xml)
+
         #substitute with self.wdata
-        #write out template
-        
+        self.output = self.template.substitute(self.weather_data)
+        return self.output        
+
     def _parse_weather_data(self, xml):
         wdata = {}
         i = 1
@@ -94,26 +94,35 @@ class Weather(object):
                 name = 'forecast%s' % i
                 i = i + 1
             [wdata.update({'%s_%s' % (name, k): v}) for k, v in y.attrs]
-        self.wdata = wdata
+        return(wdata)
 
 def create_output(config):
-    #subs = {} #gmail gmail = GMail(config.get('gmail', 'username'),
-    #              config.get('gmail', 'password'))
-    #subs['gmail'] = gmail.generate_output()    
-    Weather().generate_output()
+    output = {} 
 
-    #google calendar
-    #url = ''
-    #gcal = GoogleCalendar(url)
-    #subs['gcal'] = gcal.generate_output()
-    #print subs
+    # Gmail
+    gmail = GMail(dict(config.items('gmail')))
+    output['gmail'] = gmail.generate_output()
+
+    # Weather
+    weather = Weather(dict(config.items('weather')))
+    output['weather'] = weather.generate_output()
+
+    print output
 
 def get_config_options():
     config = ConfigParser()
-    config.readfp(open('.passwd'))
+    config.readfp(open('.config'))
     return config
 
+def read_template(fn):
+    """Reads from fn and returns a String.Template object ignoring any lines
+    that begin with '#'"""
+    with open(fn) as f:
+        lines = [line for line in f if line[0] != '#']
+    return Template(''.join(lines))
+
 def download_page(url):
+    """returns a content string for a given url"""
     return urllib2.urlopen(url).read()
 
 if __name__ == '__main__':
