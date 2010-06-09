@@ -1,3 +1,4 @@
 # ignore password file
+.config
 .passwd
 *.pyc
