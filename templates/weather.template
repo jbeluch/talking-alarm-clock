@@ -39,4 +39,7 @@
 # location_region       NY
 # location_country      United States
 
-The current conditions for $location_city are $condition_text, $condition_temp degrees $units_temperature.
+The current weather conditions for $location_city are $condition_text, 
+$condition_temp degrees fahrenheit.  The forecast for $forecast1_day is 
+$forecast1_text with a high of $forecast1_high degrees.  The forecast for 
+$forecast2_day is $forecast2_text with a high of $forecast2_high degrees.

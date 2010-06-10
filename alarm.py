@@ -2,22 +2,18 @@
 #talking alarm clock
 #6/2/2010 jon@jonathanbeluch.com
 from libs.BeautifulSoup import BeautifulStoneSoup as BSS
+from libs.rfc3339 import parse_datetime, parse_date, datetimetostr
+from xml.etree import ElementTree as ET
+from ConfigParser import ConfigParser
+from string import Template
 import urllib2
 import datetime
-from string import Template
-from libs.rfc3339 import parse_datetime, parse_date, datetimetostr
-from ConfigParser import ConfigParser
 import re
 import os
 import urllib
-#collect data from each source, enter into the main festival script
-#1. download data
-#2. compose template for specific data
-#3. compose master template comprised of all small templates
 
 
 class GMail(object):
-    #todo - pass all available gmail feed values to the template
     url = 'https://mail.google.com/mail/feed/atom'
 
     def __init__(self, options):
@@ -49,6 +45,7 @@ class GMail(object):
             {'unread_count': xml.fullcount.text, 'emails': '\n'.join(emails)})
 
         return self.output
+
 
 class GoogleCalendar(object):
     url = 'http://www.google.com/calendar/feeds/%s/private-%s/full-noattendees'
@@ -91,39 +88,64 @@ class GoogleCalendar(object):
 
     
 class Weather(object):
-
+    url = 'http://weather.yahooapis.com/forecastrss?w=%s'
+    
     def __init__(self, options):
-        url = 'http://weather.yahooapis.com/forecastrss?w=%s'
-        self.url = url % options['code'] 
+        self.url = self.url % options['code'] 
         self.options = options
-        self.template_fn = options['template']
+        self.template = read_template(options['template'])
 
     def generate_output(self):
-        xml = BSS(download_page(self.url))     
-
-        #read templates
-        self.template = read_template(self.template_fn) 
-
         #parse data
-        self.weather_data = self._parse_weather_data(xml)
+        self.weather_data = self._parse_weather_data(self.url) 
 
         #substitute with self.wdata
         self.output = self.template.substitute(self.weather_data)
         return self.output        
 
-    def _parse_weather_data(self, xml):
+    def _parse_weather_data(self, url):
+        """takes a yahoo weather url and returns a dict of weather data for
+        use in templating"""
+        ns = 'http://xml.weather.yahoo.com/ns/rss/1.0'
+
+        #open url and parse rss feed
+        xml = ET.parse(urllib.urlopen(url)).getroot()
+        tag_attrs = {
+            'location': ('city', 'region', 'country'),
+            'units': ('temperature', 'distance', 'pressure', 'speed'),
+            'wind': ('chill', 'direction', 'speed'),
+            'atmosphere': ('humidity', 'visibilitiy', 'pressure', 'rising'),
+            'astronomy': ('sunrise', 'sunset'),
+            'forecast1': ('low', 'high', 'day', 'date', 'text', 'code'),
+            'forecast2': ('low', 'high', 'day', 'date', 'text', 'code'),
+            'condition': ('code', 'date', 'temp', 'text')}
+        tags = {'location': xml.find('channel/{%s}location' % ns),
+                'units': xml.find('channel/{%s}units' % ns),
+                'wind': xml.find('channel/{%s}wind' % ns),
+                'atmosphere': xml.find('channel/{%s}atmosphere' % ns),
+                'astronomy': xml.find('channel/{%s}astronomy' % ns),
+                'forecast1': xml.findall('channel/item/{%s}forecast' % ns)[0],
+                'forecast2': xml.findall('channel/item/{%s}forecast' % ns)[1],
+                'condition': xml.find('channel/item/{%s}condition' % ns)}
+
+        #update the wdata dict with each tag's attributes
         wdata = {}
-        i = 1
-        for y in xml.findAll(re.compile('yweather')):
-            name = y.name[9:]
-            if name == 'forecast': 
-                name = 'forecast%s' % i
-                i = i + 1
-            [wdata.update({'%s_%s' % (name, k): v}) for k, v in y.attrs]
-        return(wdata)
+        for tag_name, tag in tags.items():
+            wdata.update(self._parse_attrs(tag, tag_name, tag_attrs[tag_name]))
+        return wdata
+
+    def _parse_attrs(self, tag, tag_name, attrs):
+        """Returns a dict of attributes and values, the dict key is equal to 
+        '<tag_name>_<attribute_name>'."""
+        result = {}
+        for attr in attrs:
+            result['%s_%s' % (tag_name, attr)] = tag.get(attr)
+        return result
+
 
 def get_datetime(date_string):
     """takes an rfc3339 formatted date or datetime string and returns the apppropriate date or datetime object"""
+    #if timestampe is found in string, its a datetime else, just date
     if date_string.find('T') > 0:
         return parse_datetime(date_string)
     return parse_date(date_string)
@@ -143,7 +165,6 @@ def create_output(config):
     gcal = GoogleCalendar(dict(config.items('gcal')))
     output['gcal'] = gcal.generate_output()
 
-    print output
     #for now just print to a file, eventually will use a master template here
     with open('output', 'w') as f:
         f.writelines(output.values())
