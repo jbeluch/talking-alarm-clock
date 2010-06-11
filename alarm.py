@@ -12,6 +12,7 @@ import re
 import os
 import urllib
 
+CONFIG_FILENAME = '.PRIVATE_CONFIG'
 
 class GMail(object):
     url = 'https://mail.google.com/mail/feed/atom'
@@ -73,6 +74,8 @@ class GoogleCalendar(object):
         entries = [(e.title.text, 
                     get_datetime(e.find('gd:when')['starttime']))
                     for e in xml.findAll('entry')]
+        if len(entries) == 0:  return 'You have no scheduled events for today.'
+
         output = []
         for content, start_time in entries:
             #use different templates for all day events vs events with a start
@@ -98,10 +101,23 @@ class Weather(object):
     def generate_output(self):
         #parse data
         self.weather_data = self._parse_weather_data(self.url) 
+        self._add_custom_fields(self.weather_data)
 
         #substitute with self.wdata
         self.output = self.template.substitute(self.weather_data)
         return self.output        
+
+    def _add_custom_fields(self, wdata):
+        """adds custom fields such as full daynames, and full unit strings"""
+        days = {'Mon': 'Monay', 'Tue': 'Tuesday', 'Wed': 'Wednesday',
+                'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday',
+                'Sun': 'Sunday'}
+        temp_units = {'F': 'fahrenheit', 'C': 'celcius'}
+        new_wdata = {'forecast1_fullday': days[wdata['forecast1_day']],
+                     'forecast2_fullday': days[wdata['forecast2_day']],
+                     'units_temperature_full': 
+                        temp_units[wdata['units_temperature']]}
+        wdata.update(new_wdata)
 
     def _parse_weather_data(self, url):
         """takes a yahoo weather url and returns a dict of weather data for
@@ -151,27 +167,31 @@ def get_datetime(date_string):
     return parse_date(date_string)
 
 def create_output(config):
-    output = {} 
+    output_items = {} 
 
     # Gmail
     gmail = GMail(dict(config.items('gmail')))
-    output['gmail'] = gmail.generate_output()
+    output_items['gmail'] = gmail.generate_output()
 
     # Weather
     weather = Weather(dict(config.items('weather')))
-    output['weather'] = weather.generate_output()
+    output_items['weather'] = weather.generate_output()
 
     # Google Calendar
     gcal = GoogleCalendar(dict(config.items('gcal')))
-    output['gcal'] = gcal.generate_output()
+    output_items['gcal'] = gcal.generate_output()
 
-    #for now just print to a file, eventually will use a master template here
+    template = read_template(config.get('main', 'template'))
+    output = template.substitute(output_items)
     with open('output', 'w') as f:
-        f.writelines(output.values())
+        f.write(output)
+    #for now just print to a file, eventually will use a master template here
+    #with open('output', 'w') as f:
+    #    f.writelines(output.values())
 
-def get_config_options():
+def get_config_options(config_fn):
     config = ConfigParser()
-    config.readfp(open('.config'))
+    config.readfp(open(config_fn))
     return config
 
 def read_template(fn):
@@ -186,6 +206,6 @@ def download_page(url):
     return urllib2.urlopen(url).read()
 
 if __name__ == '__main__':
-    config = get_config_options()
+    config = get_config_options(CONFIG_FILENAME)
     create_output(config)
 
