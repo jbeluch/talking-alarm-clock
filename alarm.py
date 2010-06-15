@@ -11,6 +11,7 @@ import datetime
 import re
 import os
 import urllib
+import sys
 
 CONFIG_FILENAME = '.PRIVATE_CONFIG'
 
@@ -183,11 +184,12 @@ def create_output(config):
 
     template = read_template(config.get('main', 'template'))
     output = template.substitute(output_items)
-    with open('output', 'w') as f:
-        f.write(output)
-    #for now just print to a file, eventually will use a master template here
-    #with open('output', 'w') as f:
-    #    f.writelines(output.values())
+    #print to an output file
+    #with open(os.path.join(path, 'output'), 'w') as f:
+    #    f.write(output)
+
+    #print to stdout
+    print output
 
 def get_config_options(config_fn):
     config = ConfigParser()
@@ -197,7 +199,7 @@ def get_config_options(config_fn):
 def read_template(fn):
     """Reads from fn and returns a String.Template object ignoring any lines
     that begin with '#'"""
-    with open(fn) as f:
+    with open(os.path.join(path, fn)) as f:
         lines = [line for line in f if line[0] != '#']
     return Template(''.join(lines))
 
@@ -206,6 +208,9 @@ def download_page(url):
     return urllib2.urlopen(url).read()
 
 if __name__ == '__main__':
-    config = get_config_options(CONFIG_FILENAME)
+    path = os.path.dirname(sys.argv[0])
+    config_fn = os.path.join(path, '.config')
+    if len(sys.argv) == 2:
+        config_fn = sys.argv[1]
+    config = get_config_options(config_fn)
     create_output(config)
-

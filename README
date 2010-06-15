@@ -1,16 +1,5 @@
-Create a .config file in the application root dir and place the following 
-lines in it:
+This is a small script, that when coupled with festival and cron, can act as a talking alarm clock.
 
-[gmail]
-username=joesmith
-password=hockey
-email_template=/home/jon/code/talking-alarm-clock/templates/email.template
-gmail_template=/home/jon/code/talking-alarm-clock/templates/gmail.template
+The main script is alarm.py.  It checks in the same folder for a .config file, or you can specify a different config filename as an argument on the command line when calling the script.  The .config file contains login information and paths to template files for building output.
 
-[weather]
-#code can be found in the url when going to a city/regions weather page on
-#weather.com
-code=12761347
-test=blah
-template=/home/jon/code/talking-alarm-clock/templates/weather.template
-
+The script prints the talking text to stdout, which can then be piped into festival.  See crontab_entry for example entries to use this as a talking alarm clock.

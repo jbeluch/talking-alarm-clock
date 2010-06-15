@@ -1,0 +1,6 @@
+# m h dom mon dow   command
+#custom config file
+30 06 * * * /path/to/alarm.py /path/to/custom/config/file | festival --tts
+
+#standard .config file, located in the same path as alarm.py
+30 06 * * * /path/to/alarm.py | festival --tts
